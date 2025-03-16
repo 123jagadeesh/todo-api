@@ -1,12 +1,12 @@
 ### Get all tasks
 # GET http://localhost:5000/tasks
 
-### Add a new task
+# ## Add a new task
 # POST http://localhost:5000/tasks
 # Content-Type: application/json
 
 # {
-#   "title": "Practice DSA"
+#   "title": "Practice Aptitude"
 # }
 
 ### Get all tasks

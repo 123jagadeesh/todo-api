@@ -68,20 +68,43 @@
 
 require("dotenv").config();
 const express = require("express");
+
+const session = require("express-session");
+
 const cors = require("cors");
 const connectDB = require("./config/db");
+const passport = require("./config/passport"); // Our passport config
+const authRoutes = require("./routes/authRoutes");
 const taskRoutes = require("./routes/taskRoutes");
 
 const app = express();
 
 // Middleware
 app.use(express.json());
-app.use(cors());
+app.use(cors({ origin: "http://localhost:3000", credentials: true }));
+
+
+// Session middleware (for session-based auth)
+app.use(
+    session({
+      secret: process.env.SESSION_SECRET, // Change this to a secure random string
+      resave: false,
+      saveUninitialized: false,
+    })
+  );
+
+
+// Initialize Passport and session
+app.use(passport.initialize());
+app.use(passport.session());
+
 
 // Connect to MongoDB
 connectDB();
 
-// Use routes
+// Set up auth routes
+app.use("/auth", authRoutes);
+// Set up task routes (protected as needed)
 app.use("/tasks", taskRoutes);
 
 const PORT = process.env.PORT || 5000;
