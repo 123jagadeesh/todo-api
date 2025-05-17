@@ -28,3 +28,33 @@
 
 # ### Get all tasks
 # GET http://localhost:5000/tasks
+
+
+### Test Google OAuth Login/Signup (This will redirect to Google)
+GET http://localhost:5000/auth/google
+
+
+### Local Signup
+POST http://localhost:5000/auth/signup
+Content-Type: application/json
+
+{
+    "email": "test@example.com",
+    "password": "password123",
+    "name": "Test User"
+}
+
+### Local Login
+POST http://localhost:5000/auth/login
+Content-Type: application/json
+
+{
+    "email": "jagadeeshjagan2003@gmail.com",
+    "password": "1234"
+}
+
+### Logout
+GET http://localhost:5000/auth/logout
+
+### Get Current User Profile
+GET http://localhost:5000/auth/profile

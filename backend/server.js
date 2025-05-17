@@ -81,17 +81,23 @@ const app = express();
 
 // Middleware
 app.use(express.json());
-app.use(cors({ origin: "http://localhost:3000", credentials: true }));
+app.use(cors({ origin: ["http://localhost:3001", "http://localhost:3000"] ,credentials: true ,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 
 
 // Session middleware (for session-based auth)
-app.use(
-    session({
-      secret: process.env.SESSION_SECRET, // Change this to a secure random string
-      resave: false,
-      saveUninitialized: false,
-    })
-  );
+app.use(session({
+  secret: process.env.SESSION_SECRET,
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: false, // Set to true in production with HTTPS
+    httpOnly: true,
+    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+  }
+}));
 
 
 // Initialize Passport and session
@@ -107,5 +113,10 @@ app.use("/auth", authRoutes);
 // Set up task routes (protected as needed)
 app.use("/tasks", taskRoutes);
 
-const PORT = process.env.PORT || 5000;
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({ message: 'Something went wrong!' });
+});
+const PORT = process.env.PORT || 5000; // Change to 5002
 app.listen(PORT, () => console.log(`🚀 Server running on http://localhost:${PORT}`));

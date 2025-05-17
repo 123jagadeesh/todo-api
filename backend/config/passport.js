@@ -1,75 +1,86 @@
 const passport = require("passport");
 const LocalStrategy = require("passport-local").Strategy;
 const GoogleStrategy = require("passport-google-oauth20").Strategy;
-const bcrypt = require("bcryptjs")
+const bcrypt = require("bcryptjs");
 const User = require("../models/User");
 
-//configure localstrtegy
-passport.use(
-  new LocalStrategy(
-    {usernameField: "email"},
-  async(email,password,done)=>{
-    try{
-      // If no user is found, return false with amessage
-      const user = await User.findOne({email});
-      if(!user){
-        return done(null,false,{message:"Incorrect email."});
-      }
-      //compare the provided password with stored hashed password
-      const isMatch = await bcrypt.compare(password,user.password);
-      if(!isMatch)
-      { //if password don't match,return false
-        return done(null,false,{ message: "Incorrect password."});
-      }
-      //if user exists and password matches,return the user object
-      return done(null,user);
-    }catch(err){
-      //pass any errors to Passport
-      return done(err);
-    }
-  }
-  )
-)
-passport.use(new GoogleStrategy({
-    clientID: process.env.GOOGLE_CLIENT_ID,  //Google OAuth Client ID
-    clientSecret: process.env.GOOGLE_CLIENT_SECRET, //Google OAuth Client Secret
-    callbackURL: "/auth/google/callback",
-  },
-  async (accessToken, refreshToken, profile, done) => {
+// Local Strategy remains the same
+passport.use(new LocalStrategy(
+  { usernameField: "email" },
+  async (email, password, done) => {
     try {
-      // Find or create the user based on Google profile
-      let user = await User.findOne({ googleId: profile.id });
-      if (user) {
-        done(null, user);
-        }
-         // Create new user if doesn't exist. Email and name come from profile.
-         user = await User.create({
-          googleId: profile.id,
-          email: profile.emails[0].value,
-          name: profile.displayName,
-      });  
-      return done(null, user);  
-    } catch (error) {
-      done(error, null);
+      const user = await User.findOne({ email });
+      if (!user) {
+        return done(null, false, { message: "Incorrect email." });
+      }
+      const isMatch = await bcrypt.compare(password, user.password);
+      if (!isMatch) {
+        return done(null, false, { message: "Incorrect password." });
+      }
+      return done(null, user);
+    } catch (err) {
+      return done(err);
     }
   }
 ));
 
-// Optionally, serialize/deserialize users if using sessions.
-// If you're using JWT instead, you may not need these:
-// passport.serializeUser is a function that tells Passport what user data should be stored in the session (here, just user.id).
-passport.serializeUser((user, done) => 
-  {
-    done(null, user.id)
-  });
+// Fixed Google Strategy
+passport.use(new GoogleStrategy({
+    clientID: process.env.GOOGLE_CLIENT_ID,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    callbackURL: "http://localhost:5000/auth/google/callback", // Add full URL
+    userProfileURL: "https://www.googleapis.com/oauth2/v3/userinfo" // Add this line
+  },
+  async (accessToken, refreshToken, profile, done) => {
+    try {
+      // Check if user exists
+      let user = await User.findOne({ 
+        $or: [
+          { googleId: profile.id },
+          { email: profile.emails[0].value }
+        ]
+      });
 
-//deserializer ensure that the  authenticated user's information is available on every request after they log in.
+      if (user) {
+        // Update existing user's Google ID if they signed up with email first
+        if (!user.googleId) {
+          user.googleId = profile.id;
+          await user.save();
+        }
+        return done(null, user);
+      }
 
+      // Create new user
+      user = await User.create({
+        googleId: profile.id,
+        email: profile.emails[0].value,
+        name: profile.displayName,
+        password: await bcrypt.hash(Math.random().toString(36), 10) // Random password for Google users
+      });
+
+      return done(null, user);
+    } catch (error) {
+      console.error('Google Strategy Error:', error);
+      return done(error, null);
+    }
+  }
+));
+
+// Improved serialization
+passport.serializeUser((user, done) => {
+  done(null, user.id);
+});
+
+// Improved deserialization with error handling
 passport.deserializeUser(async (id, done) => {
   try {
-    const user = await User.findById(id);
+    const user = await User.findById(id).select('-password'); // Exclude password
+    if (!user) {
+      return done(null, false);
+    }
     done(null, user);
   } catch (error) {
+    console.error('Deserialize Error:', error);
     done(error, null);
   }
 });
